@@ -57,7 +57,7 @@ public class Notefier implements PitchDetectionHandler {
 	public static final String MIXER_INFO_ID = "Default Audio Device, version Unknown Version";
 	public static final float MIN_PROBABILITY = (float) 0.92;
 
-	public static final int MAX_COUNT = 4;
+	public static final int MAX_COUNT = 5;
 
 	private JFrame frame;
 	private JTextArea textArea;
