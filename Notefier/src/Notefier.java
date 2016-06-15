@@ -57,8 +57,8 @@ public class Notefier implements PitchDetectionHandler{
 			"D", "D♯ / E♭", "E", "F", "F♯ / G♭", "G", "G♯ / A♭"};
 	public static final String MIXER_INFO_ID = "Default Audio Device, version Unknown Version";
 	public static final float MIN_PROBABILITY = (float) 0.92;
-
-	public static final int MAX_COUNT = 5;
+	
+	public static final float MIN_DB_VALUE = -75;
 
 	private JFrame frame;
 	private JTextArea textArea;
@@ -70,9 +70,8 @@ public class Notefier implements PitchDetectionHandler{
 
 	private String prevNote = "";
 	private float prevNoteStart = 0;
-	private String[] pastNoteArray = new String[MAX_COUNT];
-	private int noteCount = 0;
-
+	private String noiseCheck = "";
+	
 	/**
 	 * Launch the application.
 	 */
@@ -108,7 +107,6 @@ public class Notefier implements PitchDetectionHandler{
 		}
 		if(dispatcher!= null){
 			dispatcher.stop();
-			noteCount = 0;
 		}
 
 		float sampleRate = 44100;
@@ -150,7 +148,7 @@ public class Notefier implements PitchDetectionHandler{
 
 		int numSteps = deltaBelow > deltaAbove ? stepAbove : stepBelow; // sets numSteps to closer calculated step
 
-		int octave = (numSteps / NUM_HALF_STEPS) + 4; // get the value for octave
+		int octave = Math.floorDiv(numSteps, NUM_HALF_STEPS) + 4; // get the value for octave
 
 		numSteps = numSteps % NUM_HALF_STEPS; // gets index in NOTE_TABLE and returns appropriate string
 		if (numSteps < 0) numSteps = NUM_HALF_STEPS + numSteps;
@@ -158,36 +156,15 @@ public class Notefier implements PitchDetectionHandler{
 		return NOTE_TABLE[numSteps] + octave;
 	}
 
-	private void addToArray(String note) {
-		if (noteCount < MAX_COUNT) {
-			pastNoteArray[noteCount++] = note;
-		} else {
-			System.arraycopy(pastNoteArray, 1, pastNoteArray, 0, MAX_COUNT - 1);
-			pastNoteArray[MAX_COUNT - 1] = note;
-		}
-	}
-	
-	private boolean isValidChange() {
-		String mostRecentNote = pastNoteArray[MAX_COUNT - 1];
-		for (int i = 0; i < MAX_COUNT - 1; i++) {
-			if (!pastNoteArray[i].equals(mostRecentNote)) return false;
-		}
-		return true;
-	}
-	
 	@Override
 	public void handlePitch(PitchDetectionResult pitchDetectionResult,AudioEvent audioEvent) {
 		float dbValue = (float) audioEvent.getdBSPL();
-		System.out.println(dbValue);
-		if (pitchDetectionResult.getPitch() != -1) {
+		if (pitchDetectionResult.getPitch() != -1 && dbValue > MIN_DB_VALUE) {
 			float pitch = pitchDetectionResult.getPitch();
 			double timeStamp = audioEvent.getTimeStamp();
 			float probability = pitchDetectionResult.getProbability();
 			double rms = audioEvent.getRMS() * 100;
 			String note = getNote(pitch);
-			
-			addToArray(note);
-			if (pastNoteArray.length < MAX_COUNT) return;
 			
 			if (probability < MIN_PROBABILITY) return;
 			
@@ -196,21 +173,29 @@ public class Notefier implements PitchDetectionHandler{
 			textArea.setCaretPosition(textArea.getDocument().getLength());
 
 			if (!note.equals(prevNote)) { // changed notes
-				if (note.equals("F6") || note.equals("C6")) for (int i = 0; i < MAX_COUNT; i++) System.out.println(i + ": " + pastNoteArray[i]);
-				if (!isValidChange()) return;
+				
+				if (!noiseCheck.equals(note)) {
+					noiseCheck = note;
+					return;
+				}
+				
 				if (!prevNote.equals("")) {
 					float noteLength = (float) (timeStamp - prevNoteStart); 
 					String newNoteMessage = String.format("Pitch detected: %s, Length: %f\n", prevNote, noteLength);
 					noteArea.append(newNoteMessage);
 				}
+				
 				prevNote = note;
 				prevNoteStart = (float) timeStamp;
 			}
 		} else {
-			addToArray("");
-			if (pastNoteArray.length < MAX_COUNT) return;
 			if (!prevNote.equals("")) { // changed notes
-				if (!isValidChange()) return;
+				
+				if (!noiseCheck.equals("")) {
+					noiseCheck = "";
+					return;
+				}
+				
 				double timeStamp = audioEvent.getTimeStamp();
 				float noteLength = (float) (timeStamp - prevNoteStart); 
 				String newNoteMessage = String.format("Pitch detected: %s, Length: %f\n", prevNote, noteLength);
