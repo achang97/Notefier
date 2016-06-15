@@ -148,7 +148,8 @@ public class Notefier implements PitchDetectionHandler{
 
 		int numSteps = deltaBelow > deltaAbove ? stepAbove : stepBelow; // sets numSteps to closer calculated step
 
-		int octave = Math.floorDiv(numSteps, NUM_HALF_STEPS) + 4; // get the value for octave
+		int numStepsC4 = numSteps + 9; // number of half steps of note from C4
+		int octave = Math.floorDiv(numStepsC4, NUM_HALF_STEPS) + 4; // get the value for octave
 
 		numSteps = numSteps % NUM_HALF_STEPS; // gets index in NOTE_TABLE and returns appropriate string
 		if (numSteps < 0) numSteps = NUM_HALF_STEPS + numSteps;
