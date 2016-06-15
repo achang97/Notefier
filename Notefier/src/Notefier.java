@@ -23,6 +23,7 @@ import javax.swing.UIManager;
 
 import be.tarsos.dsp.AudioDispatcher;
 import be.tarsos.dsp.AudioEvent;
+import be.tarsos.dsp.io.TarsosDSPAudioFormat;
 import be.tarsos.dsp.io.jvm.JVMAudioInputStream;
 import be.tarsos.dsp.pitch.PitchDetectionHandler;
 import be.tarsos.dsp.pitch.PitchDetectionResult;
@@ -47,7 +48,7 @@ import java.awt.Color;
 
 import javax.sound.sampled.AudioSystem;
 
-public class Notefier implements PitchDetectionHandler {
+public class Notefier implements PitchDetectionHandler{
 
 	public static final float A_CONST = (float) Math.pow(2, 1 / 12.0);
 	public static final int MIDDLE_A_FREQ = 440;
@@ -91,10 +92,11 @@ public class Notefier implements PitchDetectionHandler {
 	/**
 	 * Create the application.
 	 */
-	public Notefier() {
+	public Notefier() {	
 		//create the GUI
 		initialize();
 	}
+	
 
 	private void setMixer() throws LineUnavailableException {
 		algo = PitchEstimationAlgorithm.YIN;
@@ -175,6 +177,8 @@ public class Notefier implements PitchDetectionHandler {
 	
 	@Override
 	public void handlePitch(PitchDetectionResult pitchDetectionResult,AudioEvent audioEvent) {
+		float dbValue = (float) audioEvent.getdBSPL();
+		System.out.println(dbValue);
 		if (pitchDetectionResult.getPitch() != -1) {
 			float pitch = pitchDetectionResult.getPitch();
 			double timeStamp = audioEvent.getTimeStamp();
