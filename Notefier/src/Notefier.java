@@ -80,6 +80,8 @@ public class Notefier implements PitchDetectionHandler{
 
 	private ArrayList<String> allNotes = new ArrayList<String>();
 	private ArrayList<Float> allNoteLengths = new ArrayList<Float>();
+	private JTextField textField;
+	private JTextField textField_1;
 	
 	/**
 	 * Launch the application.
@@ -212,8 +214,9 @@ public class Notefier implements PitchDetectionHandler{
 
 			double timeStamp = audioEvent.getTimeStamp();
 			String note = getNote(pitch);
-
-			String message = String.format("Pitch detected at %.2fs: %.2fHz ( %.2f probability, %.2f dB) The note is: %s\n", timeStamp,pitch,probability, dbValue, note);
+			float RMS = (float) audioEvent.getRMS() * 100;
+			
+			String message = String.format("Pitch detected at %.2fs: %.2fHz ( %.2f probability, %.2f dB, %.2f RMS) The note is: %s\n", timeStamp,pitch,probability, dbValue, RMS, note);
 			textArea.append(message);
 			textArea.setCaretPosition(textArea.getDocument().getLength());
 
@@ -236,7 +239,7 @@ public class Notefier implements PitchDetectionHandler{
 				prevNote = note;
 				prevNoteStart = (float) timeStamp;
 			}
-		}
+		} 
 		/*
 		else {
 			String message = String.format("REST detected at %.2f dB\n", dbValue);
@@ -337,12 +340,30 @@ public class Notefier implements PitchDetectionHandler{
 		transcribeArea.setEditable(false);
 		
 		tempoField = new JTextField();
-		tempoField.setBounds(443, 47, 62, 28);
+		tempoField.setBounds(442, 0, 62, 28);
 		frame.getContentPane().add(tempoField);
 		tempoField.setColumns(10);
 		
 		JLabel lblTempo = new JLabel("Tempo:");
-		lblTempo.setBounds(389, 53, 61, 16);
+		lblTempo.setBounds(385, 6, 61, 16);
 		frame.getContentPane().add(lblTempo);
+		
+		JLabel label = new JLabel("Tempo:");
+		label.setBounds(385, 64, 61, 16);
+		frame.getContentPane().add(label);
+		
+		textField = new JTextField();
+		textField.setColumns(10);
+		textField.setBounds(442, 58, 62, 28);
+		frame.getContentPane().add(textField);
+		
+		JLabel label_1 = new JLabel("Tempo:");
+		label_1.setBounds(385, 40, 61, 16);
+		frame.getContentPane().add(label_1);
+		
+		textField_1 = new JTextField();
+		textField_1.setColumns(10);
+		textField_1.setBounds(442, 34, 62, 28);
+		frame.getContentPane().add(textField_1);
 	}
 }
