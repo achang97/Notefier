@@ -62,11 +62,16 @@ public class Notefier implements PitchDetectionHandler{
 
 	public static final int MIN_DB_VALUE = -70;
 	public static final int MIN_DB_CHANGE = 10;
+	public static final int MIN_RMS_CHANGE = 3;
 
 	private JFrame frame;
 	private JTextArea textArea;
 	private JTextArea noteArea;
 	private JTextArea transcribeArea;
+	private JTextField tempoField;
+	private JTextField numBeatsField;
+	private JTextField typeBeatField;
+	
 	private AudioDispatcher dispatcher;
 	private Mixer mixer;
 
@@ -76,12 +81,11 @@ public class Notefier implements PitchDetectionHandler{
 	private float prevNoteStart = 0;
 	private String noiseCheck = "REST";
 	private float prevDB = -100;
-	private JTextField tempoField;
-
+	private float prevRMS = 0;
+	
 	private ArrayList<String> allNotes = new ArrayList<String>();
 	private ArrayList<Float> allNoteLengths = new ArrayList<Float>();
-	private JTextField textField;
-	private JTextField textField_1;
+	
 	
 	/**
 	 * Launch the application.
@@ -119,25 +123,27 @@ public class Notefier implements PitchDetectionHandler{
 
 	private void transcribe() {
 		// TODO Auto-generated method stub
-		String tempo = tempoField.getText();
-		if (isInteger(tempo)) {
-			int tempoVal = Integer.parseInt(tempo);
+		String tempoStr = tempoField.getText();
+		String numBeatsStr = numBeatsField.getText();
+		String typeBeatStr = typeBeatField.getText();
+		if (isInteger(tempoStr) && isInteger(numBeatsStr) && isInteger(typeBeatStr)) {
+			int tempo = Integer.parseInt(tempoStr);
+			int numBeats = Integer.parseInt(numBeatsStr);
+			int typeBeats = Integer.parseInt(typeBeatStr);
 			
-			// for now, assuming 4/4 time, so there are 4 beats in a bar
-			float lengthOfBar = (float) (60 / (tempoVal / 4.0)); // length in seconds of one bar
-			
-			// create an array of note length values (whole, half, quarter, eighth, sixteenth)
-			float[] noteLengthArray = new float[5];
-			for (int i = 0; i < noteLengthArray.length; i++) {
-				int divisor = 1 << i;
-				noteLengthArray[i] = (float) (lengthOfBar / divisor);
-			}
+			// find the length in seconds of a single beat
+			float lengthOfBeat = (float) (60 / (tempo / (float) numBeats)); // length in seconds of one beat
 			
 			for (int i = 0; i < allNotes.size(); i++) {
 				String curNote = allNotes.get(i);
+				if (curNote.equals("REST")) continue;
+				
 				float curNoteLength = allNoteLengths.get(i);
-				float noteRatio = curNoteLength / lengthOfBar;
-				System.out.println(curNote + ": " + noteRatio);
+				
+				float noteRatio = curNoteLength / lengthOfBeat;
+				
+				String message = String.format("The note is %s, lasts %.2f beats of value %d\n", curNote, noteRatio, typeBeats);
+				transcribeArea.append(message);
 			}
 		}
 	}
@@ -207,12 +213,12 @@ public class Notefier implements PitchDetectionHandler{
 	public void handlePitch(PitchDetectionResult pitchDetectionResult,AudioEvent audioEvent) {
 		float dbValue = (float) audioEvent.getdBSPL();
 		float pitch = pitchDetectionResult.getPitch();
-
+		double timeStamp = audioEvent.getTimeStamp();
+		
 		if (pitch != -1 && dbValue > MIN_DB_VALUE) {
 			float probability = pitchDetectionResult.getProbability();
 			if (probability < MIN_PROBABILITY) return;
 
-			double timeStamp = audioEvent.getTimeStamp();
 			String note = getNote(pitch);
 			float RMS = (float) audioEvent.getRMS() * 100;
 			
@@ -220,9 +226,13 @@ public class Notefier implements PitchDetectionHandler{
 			textArea.append(message);
 			textArea.setCaretPosition(textArea.getDocument().getLength());
 
+			float deltaDB = dbValue - prevDB;
 			prevDB = dbValue; // resets prevDB
-
-			if (!note.equals(prevNote) || Math.abs(prevDB - dbValue) > MIN_DB_CHANGE) { // changed notes
+			
+			float deltaRMS = RMS - prevRMS;
+			prevRMS = RMS;
+			
+			if (!note.equals(prevNote) || deltaDB > MIN_DB_CHANGE || deltaRMS > MIN_RMS_CHANGE) { // changed notes
 
 				if (!noiseCheck.equals(note)) {
 					noiseCheck = note;
@@ -239,22 +249,20 @@ public class Notefier implements PitchDetectionHandler{
 				prevNote = note;
 				prevNoteStart = (float) timeStamp;
 			}
-		} 
-		/*
-		else {
-			String message = String.format("REST detected at %.2f dB\n", dbValue);
+		} else {
+			String message = String.format("REST detected at %.2fs at %.2f dB\n", timeStamp, dbValue);
 			textArea.append(message);
 			textArea.setCaretPosition(textArea.getDocument().getLength());
 
 			prevDB = dbValue; // resets prevDB
-
+			prevRMS = 0;
+			
 			if (!prevNote.equals("REST")) {
 				if (!noiseCheck.equals("REST")) {
 					noiseCheck = "REST";
 					return;
 				}
 
-				double timeStamp = audioEvent.getTimeStamp();
 				float noteLength = (float) (timeStamp - prevNoteStart); 
 				String newNoteMessage = String.format("Pitch detected: %s, Length: %f\n", prevNote, noteLength);
 				noteArea.append(newNoteMessage);
@@ -266,7 +274,6 @@ public class Notefier implements PitchDetectionHandler{
 				prevNoteStart = (float) timeStamp;
 			}
 		}
-		*/
 	}
 
 	/**
@@ -345,25 +352,25 @@ public class Notefier implements PitchDetectionHandler{
 		tempoField.setColumns(10);
 		
 		JLabel lblTempo = new JLabel("Tempo:");
-		lblTempo.setBounds(385, 6, 61, 16);
+		lblTempo.setBounds(372, 6, 74, 16);
 		frame.getContentPane().add(lblTempo);
 		
-		JLabel label = new JLabel("Tempo:");
-		label.setBounds(385, 64, 61, 16);
-		frame.getContentPane().add(label);
+		JLabel lblBeatValue = new JLabel("Beat Value:");
+		lblBeatValue.setBounds(372, 64, 74, 16);
+		frame.getContentPane().add(lblBeatValue);
 		
-		textField = new JTextField();
-		textField.setColumns(10);
-		textField.setBounds(442, 58, 62, 28);
-		frame.getContentPane().add(textField);
+		numBeatsField = new JTextField();
+		numBeatsField.setColumns(10);
+		numBeatsField.setBounds(442, 58, 62, 28);
+		frame.getContentPane().add(numBeatsField);
 		
-		JLabel label_1 = new JLabel("Tempo:");
-		label_1.setBounds(385, 40, 61, 16);
-		frame.getContentPane().add(label_1);
+		JLabel lblBeats = new JLabel("# Beats:");
+		lblBeats.setBounds(372, 40, 74, 16);
+		frame.getContentPane().add(lblBeats);
 		
-		textField_1 = new JTextField();
-		textField_1.setColumns(10);
-		textField_1.setBounds(442, 34, 62, 28);
-		frame.getContentPane().add(textField_1);
+		typeBeatField = new JTextField();
+		typeBeatField.setColumns(10);
+		typeBeatField.setBounds(442, 34, 62, 28);
+		frame.getContentPane().add(typeBeatField);
 	}
 }
