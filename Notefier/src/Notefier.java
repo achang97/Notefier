@@ -57,8 +57,9 @@ public class Notefier implements PitchDetectionHandler{
 			"D", "D♯ / E♭", "E", "F", "F♯ / G♭", "G", "G♯ / A♭"};
 	public static final String MIXER_INFO_ID = "Default Audio Device, version Unknown Version";
 	public static final float MIN_PROBABILITY = (float) 0.92;
-	
-	public static final float MIN_DB_VALUE = -75;
+
+	public static final int MIN_DB_VALUE = -90;
+	public static final int MIN_DB_CHANGE = 8;
 
 	private JFrame frame;
 	private JTextArea textArea;
@@ -68,10 +69,12 @@ public class Notefier implements PitchDetectionHandler{
 
 	private PitchEstimationAlgorithm algo;
 
-	private String prevNote = "";
+	private String prevNote = "REST";
 	private float prevNoteStart = 0;
-	private String noiseCheck = "";
-	
+	private String noiseCheck = "REST";
+	private float prevDB = -100;
+	private int tempo = 0;
+
 	/**
 	 * Launch the application.
 	 */
@@ -95,7 +98,7 @@ public class Notefier implements PitchDetectionHandler{
 		//create the GUI
 		initialize();
 	}
-	
+
 
 	private void setMixer() throws LineUnavailableException {
 		algo = PitchEstimationAlgorithm.YIN;
@@ -160,49 +163,54 @@ public class Notefier implements PitchDetectionHandler{
 	@Override
 	public void handlePitch(PitchDetectionResult pitchDetectionResult,AudioEvent audioEvent) {
 		float dbValue = (float) audioEvent.getdBSPL();
-		if (pitchDetectionResult.getPitch() != -1 && dbValue > MIN_DB_VALUE) {
-			float pitch = pitchDetectionResult.getPitch();
-			double timeStamp = audioEvent.getTimeStamp();
+		float pitch = pitchDetectionResult.getPitch();
+
+		if (pitch != -1 && dbValue > MIN_DB_VALUE) {
 			float probability = pitchDetectionResult.getProbability();
-			double rms = audioEvent.getRMS() * 100;
-			String note = getNote(pitch);
-			
 			if (probability < MIN_PROBABILITY) return;
-			
-			String message = String.format("Pitch detected at %.2fs: %.2fHz ( %.2f probability, RMS: %.5f ) The note is: %s\n", timeStamp,pitch,probability,rms, note);
+
+			double timeStamp = audioEvent.getTimeStamp();
+			String note = getNote(pitch);
+
+			String message = String.format("Pitch detected at %.2fs: %.2fHz ( %.2f probability, %.2f dB) The note is: %s\n", timeStamp,pitch,probability, dbValue, note);
 			textArea.append(message);
 			textArea.setCaretPosition(textArea.getDocument().getLength());
 
-			if (!note.equals(prevNote)) { // changed notes
-				
+			prevDB = dbValue; // resets prevDB
+
+			if (!note.equals(prevNote) || Math.abs(prevDB - dbValue) > MIN_DB_CHANGE) { // changed notes
+
 				if (!noiseCheck.equals(note)) {
 					noiseCheck = note;
 					return;
 				}
-				
-				if (!prevNote.equals("")) {
-					float noteLength = (float) (timeStamp - prevNoteStart); 
-					String newNoteMessage = String.format("Pitch detected: %s, Length: %f\n", prevNote, noteLength);
-					noteArea.append(newNoteMessage);
-				}
-				
+
+				float noteLength = (float) (timeStamp - prevNoteStart); 
+				String newNoteMessage = String.format("Pitch detected: %s, Length: %f\n", prevNote, noteLength);
+				noteArea.append(newNoteMessage);
+
 				prevNote = note;
 				prevNoteStart = (float) timeStamp;
 			}
 		} else {
-			if (!prevNote.equals("")) { // changed notes
-				
-				if (!noiseCheck.equals("")) {
-					noiseCheck = "";
+			String message = String.format("REST detected at %.2f dB\n", dbValue);
+			textArea.append(message);
+			textArea.setCaretPosition(textArea.getDocument().getLength());
+
+			prevDB = dbValue; // resets prevDB
+
+			if (!prevNote.equals("REST")) {
+				if (!noiseCheck.equals("REST")) {
+					noiseCheck = "REST";
 					return;
 				}
-				
+
 				double timeStamp = audioEvent.getTimeStamp();
 				float noteLength = (float) (timeStamp - prevNoteStart); 
 				String newNoteMessage = String.format("Pitch detected: %s, Length: %f\n", prevNote, noteLength);
 				noteArea.append(newNoteMessage);
 
-				prevNote = ""; // indicates rest
+				prevNote = "REST"; // indicates rest
 				prevNoteStart = (float) timeStamp;
 			}
 		}
